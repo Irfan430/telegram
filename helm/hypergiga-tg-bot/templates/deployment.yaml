@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hypergiga-tg-bot.fullname" . }}
+  labels:
+    {{- include "hypergiga-tg-bot.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hypergiga-tg-bot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "hypergiga-tg-bot.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hypergiga-tg-bot.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.service.metricsPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.env.NODE_ENV | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.LOG_LEVEL | quote }}
+            - name: LOG_PRETTY
+              value: {{ .Values.env.LOG_PRETTY | quote }}
+            - name: FEATURE_TRACING
+              value: {{ .Values.env.FEATURE_TRACING | quote }}
+            - name: QUOTAS_DEFAULT
+              value: {{ .Values.env.QUOTAS_DEFAULT | quote }}
+            - name: RATE_LIMIT_GLOBAL
+              value: {{ .Values.env.RATE_LIMIT_GLOBAL | quote }}
+            - name: RATE_LIMIT_PER_USER
+              value: {{ .Values.env.RATE_LIMIT_PER_USER | quote }}
+            - name: RATE_LIMIT_PER_COMMAND
+              value: {{ .Values.env.RATE_LIMIT_PER_COMMAND | quote }}
+            - name: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+              value: {{ .Values.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD | quote }}
+            - name: PUPPETEER_EXECUTABLE_PATH
+              value: {{ .Values.env.PUPPETEER_EXECUTABLE_PATH | quote }}
+            - name: FFMPEG_PATH
+              value: {{ .Values.env.FFMPEG_PATH | quote }}
+            - name: MAX_FILE_SIZE
+              value: {{ .Values.env.MAX_FILE_SIZE | quote }}
+            - name: MAX_IMAGE_SIZE
+              value: {{ .Values.env.MAX_IMAGE_SIZE | quote }}
+            - name: MAX_VIDEO_SIZE
+              value: {{ .Values.env.MAX_VIDEO_SIZE | quote }}
+            - name: CACHE_TTL
+              value: {{ .Values.env.CACHE_TTL | quote }}
+            - name: CACHE_MAX_SIZE
+              value: {{ .Values.env.CACHE_MAX_SIZE | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.env.METRICS_PORT | quote }}
+            - name: HEALTH_CHECK_INTERVAL
+              value: {{ .Values.env.HEALTH_CHECK_INTERVAL | quote }}
+            - name: DEBUG
+              value: {{ .Values.env.DEBUG | quote }}
+            - name: ENABLE_SWAGGER
+              value: {{ .Values.env.ENABLE_SWAGGER | quote }}
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hypergiga-tg-bot.fullname" . }}-secrets
+                  key: telegram-bot-token
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hypergiga-tg-bot.fullname" . }}-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hypergiga-tg-bot.fullname" . }}-secrets
+                  key: redis-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hypergiga-tg-bot.fullname" . }}-secrets
+                  key: jwt-secret
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hypergiga-tg-bot.fullname" . }}-secrets
+                  key: encryption-key
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
